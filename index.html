@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Slouch Detector</title>
+    <!-- MediaPipe Pose and Camera Utils -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #121212;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        #container {
+            position: relative;
+            width: 80%;
+            max-width: 800px;
+            aspect-ratio: 16/9;
+            background-color: #000;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            border: 4px solid #333;
+        }
+
+        video {
+            display: none;
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        #overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background-color: rgba(255, 0, 0, 0.7);
+            z-index: 10;
+            display: none; /* Hidden by default */
+        }
+
+        #overlay h1 {
+            font-size: 5rem;
+            font-weight: 900;
+            color: white;
+            text-shadow: 4px 4px 0px #000;
+            margin: 0;
+            animation: blink 0.5s infinite alternate;
+        }
+
+        #overlay p {
+            font-size: 2rem;
+            color: yellow;
+            font-weight: bold;
+            text-shadow: 2px 2px 0px #000;
+        }
+
+        @keyframes blink {
+            from { opacity: 1; transform: scale(1); }
+            to { opacity: 0.8; transform: scale(1.05); }
+        }
+
+        #controls {
+            margin-top: 20px;
+            display: flex;
+            gap: 15px;
+        }
+
+        button {
+            padding: 12px 24px;
+            font-size: 1rem;
+            font-weight: bold;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        #calibrate-btn {
+            background-color: #8adeff;
+            color: white;
+        }
+
+        #calibrate-btn:hover {
+            background-color: #8adeff;
+        }
+
+        #status-panel {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background-color: rgba(0,0,0,0.6);
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            pointer-events: none;
+        }
+
+        .status-good { color: #00ff00; }
+        .status-warning { color: #ffff00; }
+        .status-danger { color: #ff0000; }
+
+        #calibration-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+
+        .modal-content {
+            background-color: #222;
+            padding: 30px;
+            border-radius: 12px;
+            text-align: center;
+            max-width: 400px;
+            border: 2px solid #000000;
+        }
+
+        #calibration-progress {
+            width: 100%;
+            height: 10px;
+            background-color: #444;
+            border-radius: 5px;
+            margin: 20px 0;
+            overflow: hidden;
+        }
+
+        #progress-bar {
+            height: 100%;
+            background-color: #007bff;
+            width: 0%;
+            transition: width 0.1s;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="container">
+        <video id="input-video"></video>
+        <canvas id="output-canvas"></canvas>
+        
+        <div id="overlay">
+            <h1>STOP SLOUCHING!</h1>
+            <p>SIT UP STRAIGHT</p>
+        </div>
+
+        <div id="status-panel">
+            <div>Status: <span id="status-text">Initializing...</span></div>
+            <div>Neck Dist: <span id="neck-dist">-</span></div>
+            <div>Baseline: <span id="baseline-dist">-</span></div>
+        </div>
+    </div>
+
+    <div id="controls">
+        <button id="calibrate-btn">RECALIBRATE</button>
+        <button id="audio-test-btn" style="background-color: #444; color: white;">TEST ALARM</button>
+    </div>
+
+    <div id="calibration-modal">
+        <div class="modal-content">
+            <h2>Initial Calibration</h2>
+            <p>Sit in your <strong>NORMAL</strong> position with good posture.</p>
+            <p>Calibration will start in 3 seconds...</p>
+            <div id="calibration-progress">
+                <div id="progress-bar"></div>
+            </div>
+            <button id="start-btn" style="background-color: #28a745; color: white;">START NOW</button>
+        </div>
+    </div>
+
+    <script>
+        const videoElement = document.getElementById('input-video');
+        const canvasElement = document.getElementById('output-canvas');
+        const canvasCtx = canvasElement.getContext('2d');
+        const overlay = document.getElementById('overlay');
+        const statusText = document.getElementById('status-text');
+        const neckDistSpan = document.getElementById('neck-dist');
+        const baselineDistSpan = document.getElementById('baseline-dist');
+        const calibrateBtn = document.getElementById('calibrate-btn');
+        const audioTestBtn = document.getElementById('audio-test-btn');
+        const calibrationModal = document.getElementById('calibration-modal');
+        const progressBar = document.getElementById('progress-bar');
+        const startBtn = document.getElementById('start-btn');
+
+        // Detector State
+        let isCalibrated = false;
+        let isCalibrating = false;
+        let calibrationFrames = [];
+        const REQUIRED_CALIBRATION_FRAMES = 15;
+        let baselineNeckDistance = null;
+        const SLOUCH_THRESHOLD = 0.08;
+        
+        // Audio Context for Alarm
+        let audioCtx = null;
+        let alarmInterval = null;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        function playAlarm() {
+            if (!audioCtx) return;
+            if (alarmInterval) return;
+
+            const playBeep = () => {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(880, audioCtx.currentTime); // A5
+                
+                gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+                
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.2);
+            };
+
+            playBeep();
+            alarmInterval = setInterval(playBeep, 500);
+        }
+
+        function stopAlarm() {
+            if (alarmInterval) {
+                clearInterval(alarmInterval);
+                alarmInterval = null;
+            }
+        }
+
+        function onResults(results) {
+            // Save canvas dimensions
+            canvasElement.width = videoElement.videoWidth;
+            canvasElement.height = videoElement.videoHeight;
+
+            canvasCtx.save();
+            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+            canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+            
+            if (results.poseLandmarks) {
+                drawConnectors(canvasCtx, results.poseLandmarks, POSE_CONNECTIONS,
+                             {color: '#00FF00', lineWidth: 4});
+                drawLandmarks(canvasCtx, results.poseLandmarks,
+                            {color: '#FF0000', lineWidth: 2, radius: 3});
+
+                const landmarks = results.poseLandmarks;
+                const nose = landmarks[0];
+                const leftShoulder = landmarks[11];
+                const rightShoulder = landmarks[12];
+
+                // Calculate vertical distance from nose to shoulder line
+                const shoulderMidY = (leftShoulder.y + rightShoulder.y) / 2;
+                const neckDistance = nose.y - shoulderMidY;
+                
+                neckDistSpan.innerText = neckDistance.toFixed(4);
+
+                if (isCalibrating) {
+                    calibrationFrames.push(neckDistance);
+                    const progress = (calibrationFrames.length / REQUIRED_CALIBRATION_FRAMES) * 100;
+                    progressBar.style.width = `${progress}%`;
+                    
+                    statusText.innerText = "Calibrating...";
+                    statusText.className = "status-warning";
+
+                    if (calibrationFrames.length >= REQUIRED_CALIBRATION_FRAMES) {
+                        // Median for baseline
+                        calibrationFrames.sort((a, b) => a - b);
+                        baselineNeckDistance = calibrationFrames[Math.floor(calibrationFrames.length / 2)];
+                        baselineDistSpan.innerText = baselineNeckDistance.toFixed(4);
+                        isCalibrated = true;
+                        isCalibrating = false;
+                        calibrationModal.style.display = 'none';
+                    }
+                } else if (isCalibrated) {
+                    const slouchAmount = neckDistance - baselineNeckDistance;
+                    
+                    if (slouchAmount > SLOUCH_THRESHOLD) {
+                        statusText.innerText = "SLOUCHING!";
+                        statusText.className = "status-danger";
+                        overlay.style.display = 'flex';
+                        playAlarm();
+                    } else {
+                        statusText.innerText = "Good Posture";
+                        statusText.className = "status-good";
+                        overlay.style.display = 'none';
+                        stopAlarm();
+                    }
+                }
+            } else {
+                statusText.innerText = "No Pose Detected";
+                statusText.className = "";
+                overlay.style.display = 'none';
+                stopAlarm();
+            }
+            canvasCtx.restore();
+        }
+
+        const pose = new Pose({
+            locateFile: (file) => {
+                return `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`;
+            }
+        });
+
+        pose.setOptions({
+            modelComplexity: 1,
+            smoothLandmarks: true,
+            enableSegmentation: false,
+            minDetectionConfidence: 0.5,
+            minTrackingConfidence: 0.5
+        });
+
+        pose.onResults(onResults);
+
+        const camera = new Camera(videoElement, {
+            onFrame: async () => {
+                await pose.send({image: videoElement});
+            },
+            width: 1280,
+            height: 720
+        });
+
+        startBtn.onclick = () => {
+            initAudio();
+            isCalibrating = true;
+            calibrationFrames = [];
+            startBtn.disabled = true;
+            startBtn.innerText = "Calibrating...";
+        };
+
+        calibrateBtn.onclick = () => {
+            calibrationModal.style.display = 'flex';
+            progressBar.style.width = '0%';
+            startBtn.disabled = false;
+            startBtn.innerText = "START NOW";
+            isCalibrated = false;
+            isCalibrating = false;
+            calibrationFrames = [];
+        };
+
+        audioTestBtn.onmousedown = () => {
+            initAudio();
+            playAlarm();
+        };
+        audioTestBtn.onmouseup = () => {
+            stopAlarm();
+        };
+
+        camera.start();
+    </script>
+</body>
+</html>
