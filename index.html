@@ -159,6 +159,24 @@
             width: 0%;
             transition: width 0.1s;
         }
+
+        #copyright {
+            position: fixed;
+            bottom: 12px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 11px;
+            color: #ffffff;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 4px 10px;
+            border-radius: 20px;
+            z-index: 999999;
+            pointer-events: none;
+            letter-spacing: 0.5px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+            transition: opacity 0.3s;
+        }
     </style>
 </head>
 <body>
@@ -196,7 +214,49 @@
         </div>
     </div>
 
+    <div id="copyright"></div>
+
     <script>
+        // Persistant copyright
+        (function() {
+            const _0x1a2b = ['c2xvdWNoLWRldGVjdG9yLiBNYWRlIGJ5IEFzaGxleSBDaG5n', 'Y29weXJpZ2h0'];
+            const _0x3c4d = (i) => atob(_0x1a2b[i]);
+            const _0x5e6f = () => {
+                let el = document.getElementById(_0x3c4d(1));
+                if (!el) {
+                    el = document.createElement('div');
+                    el.id = _0x3c4d(1);
+                    document.body.appendChild(el);
+                }
+                if (el.textContent !== _0x3c4d(0)) {
+                    el.textContent = _0x3c4d(0);
+                }
+                // Ensure visibility
+                if (el.style.display === 'none') el.style.display = 'block';
+                if (el.style.visibility === 'hidden') el.style.visibility = 'visible';
+                if (parseFloat(el.style.opacity) < 0.1) el.style.opacity = '1';
+            };
+            
+            // Initial run
+            _0x5e6f();
+            
+            // Heartbeat check every second
+            setInterval(_0x5e6f, 1000);
+            
+            // Instant reaction to any DOM changes
+            const obs = new MutationObserver((mutations) => {
+                for (const mutation of mutations) {
+                    _0x5e6f();
+                }
+            });
+            obs.observe(document.body, { 
+                childList: true, 
+                subtree: true, 
+                attributes: true, 
+                characterData: true 
+            });
+        })();
+
         const videoElement = document.getElementById('input-video');
         const canvasElement = document.getElementById('output-canvas');
         const canvasCtx = canvasElement.getContext('2d');
