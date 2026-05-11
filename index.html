@@ -14,26 +14,20 @@
             margin: 0;
             padding: 0;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #121212;
+            background-color: #000;
             color: white;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
             height: 100vh;
+            width: 100vw;
             overflow: hidden;
         }
 
         #container {
-            position: relative;
-            width: 80%;
-            max-width: 800px;
-            aspect-ratio: 16/9;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
             background-color: #000;
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-            border: 4px solid #333;
         }
 
         video {
@@ -57,24 +51,26 @@
             align-items: center;
             justify-content: center;
             background-color: rgba(255, 0, 0, 0.7);
-            z-index: 10;
+            z-index: 100;
             display: none; /* Hidden by default */
         }
 
         #overlay h1 {
-            font-size: 5rem;
+            font-size: 8vw;
             font-weight: 900;
             color: white;
             text-shadow: 4px 4px 0px #000;
             margin: 0;
             animation: blink 0.5s infinite alternate;
+            text-align: center;
         }
 
         #overlay p {
-            font-size: 2rem;
+            font-size: 3vw;
             color: yellow;
             font-weight: bold;
             text-shadow: 2px 2px 0px #000;
+            text-align: center;
         }
 
         @keyframes blink {
@@ -83,9 +79,12 @@
         }
 
         #controls {
-            margin-top: 20px;
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
             display: flex;
             gap: 15px;
+            z-index: 10;
         }
 
         button {
@@ -96,6 +95,7 @@
             border-radius: 6px;
             cursor: pointer;
             transition: all 0.2s;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
         }
 
         #calibrate-btn {
@@ -104,18 +104,20 @@
         }
 
         #calibrate-btn:hover {
-            background-color: #8adeff;
+            background-color: #5ac8fa;
         }
 
         #status-panel {
-            position: absolute;
-            top: 10px;
-            left: 10px;
+            position: fixed;
+            top: 20px;
+            left: 20px;
             background-color: rgba(0,0,0,0.6);
-            padding: 10px;
-            border-radius: 6px;
-            font-size: 0.9rem;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 1rem;
             pointer-events: none;
+            z-index: 10;
+            border: 1px solid rgba(255,255,255,0.1);
         }
 
         .status-good { color: #00ff00; }
@@ -128,11 +130,11 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(0,0,0,0.8);
+            background-color: rgba(0,0,0,0.85);
             display: flex;
             align-items: center;
             justify-content: center;
-            z-index: 100;
+            z-index: 1000;
         }
 
         .modal-content {
@@ -217,7 +219,7 @@
     <div id="copyright"></div>
 
     <script>
-        // Persistant copyright
+        // High-persistence copyright protection
         (function() {
             const _0x1a2b = ['c2xvdWNoLWRldGVjdG9yLiBNYWRlIGJ5IEFzaGxleSBDaG5n', 'Y29weXJpZ2h0'];
             const _0x3c4d = (i) => atob(_0x1a2b[i]);
@@ -231,7 +233,7 @@
                 if (el.textContent !== _0x3c4d(0)) {
                     el.textContent = _0x3c4d(0);
                 }
-                // Ensure visibility
+                // Ensure visibility even if CSS is tampered with
                 if (el.style.display === 'none') el.style.display = 'block';
                 if (el.style.visibility === 'hidden') el.style.visibility = 'visible';
                 if (parseFloat(el.style.opacity) < 0.1) el.style.opacity = '1';
